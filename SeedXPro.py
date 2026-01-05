@@ -146,14 +146,17 @@ class RN_SeedXPro_Translator():
         cfg_max_tokens = cfg.get("max_tokens")
         cfg_top_p = cfg.get("top_p")
 
-        used_api_baseurl = (apiBaseUrl or env_api_baseurl or cfg_base_url or "https://api.openai.com/v1")
+        used_api_baseurl = (apiBaseUrl or os.environ.get("COMFYUI_RN_BASE_URL") or env_api_baseurl or cfg_base_url or "https://api.openai.com/v1")
         used_model = (model or env_model or cfg_model or "gpt-4o-mini")
-        used_api_key = (apiKey or env_api_key or cfg_api_key or "")
+        used_api_key = (apiKey or os.environ.get("COMFYUI_RN_API_KEY") or env_api_key or cfg_api_key or "")
         if not used_api_key:
             return "错误：请提供API密钥"
 
         try:
-            client = OpenAI(api_key=used_api_key, base_url=used_api_baseurl)
+            base = (used_api_baseurl or "").rstrip("/")
+            if not (base.endswith("/v1") or "/v1/" in base):
+                base = base + "/v1"
+            client = OpenAI(api_key=used_api_key, base_url=base)
             system_prompt = "你是一个专业的翻译助手。"
             user_prompt = f"Translate from {src} to {dst}:\n{chunk}\n\nOnly return the translation in {dst}."
             messages = [
