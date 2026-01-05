@@ -66,6 +66,9 @@ class RN_SeedXPro_Translator():
             },
             "optional": {
                 "seed": ("INT", {"default": 28, "min": 0, "max": 0xffffffffffffffff}),
+                "apiBaseUrl": ("STRING", {"default": "default"}),
+                "apiKey": ("STRING", {"default": "default"}),
+                "model": ("STRING", {"default": "default"}),
             }
         }
 
@@ -107,18 +110,30 @@ class RN_SeedXPro_Translator():
         if model == "default":
             model = ""
         env_api_baseurl = (
-            os.environ.get("LLM_API_BASEURL")
+            os.environ.get("COMFYUI_RN_BASE_URL")
+            or os.environ.get("COMFLY_BASE_URL")
+            or os.environ.get("RUNNODE_BASE_URL")
+            or os.environ.get("RN_BASE_URL")
+            or os.environ.get("LLM_API_BASEURL")
             or os.environ.get("OPENAI_BASE_URL")
             or os.environ.get("OPENAI_API_BASE_URL")
             or os.environ.get("DEEPSEEK_API_BASE_URL")
         )
         env_api_key = (
-            os.environ.get("LLM_API_KEY")
+            os.environ.get("COMFYUI_RN_API_KEY")
+            or os.environ.get("COMFLY_API_KEY")
+            or os.environ.get("RUNNODE_API_KEY")
+            or os.environ.get("RN_API_KEY")
+            or os.environ.get("LLM_API_KEY")
             or os.environ.get("OPENAI_API_KEY")
             or os.environ.get("DEEPSEEK_API_KEY")
         )
         env_model = (
-            os.environ.get("LLM_MODEL")
+            os.environ.get("COMFYUI_RN_MODEL")
+            or os.environ.get("COMFLY_MODEL")
+            or os.environ.get("RUNNODE_MODEL")
+            or os.environ.get("RN_MODEL")
+            or os.environ.get("LLM_MODEL")
             or os.environ.get("OPENAI_MODEL")
             or os.environ.get("DEEPSEEK_MODEL")
         )
@@ -166,7 +181,7 @@ class RN_SeedXPro_Translator():
         except Exception as e:
             return f"翻译错误：{str(e)}"
 
-    def translate(self, prompt, **kwargs):
+    def translate(self, prompt, apiBaseUrl="default", apiKey="default", model="default", **kwargs):
         cleaned = re.sub(r'[\x00\x01-\x08\x0b\x0c\x0e-\x1f\x7f]', '', prompt or "")
         if not cleaned.strip():
             return ("错误：请输入要翻译的文本",)
@@ -175,11 +190,11 @@ class RN_SeedXPro_Translator():
 
         chunks = self._split_text_into_chunks(cleaned, max_chunk_size=400)
         if len(chunks) == 1:
-            res = self._translate_chunk(chunks[0], src, dst, None, None, None, None)
+            res = self._translate_chunk(chunks[0], src, dst, None, apiBaseUrl, apiKey, model)
             return (res,)
         translated = []
         for c in chunks:
-            translated.append(self._translate_chunk(c, src, dst, None, None, None, None))
+            translated.append(self._translate_chunk(c, src, dst, None, apiBaseUrl, apiKey, model))
         return (' '.join(translated),)
 
     @classmethod
