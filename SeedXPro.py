@@ -3,6 +3,7 @@ import time
 import json
 import os
 import re
+from .utils import generate_request_id, log_prepare, log_complete, log_error, ProgressBar
 
 
 class RN_SeedXPro_Translator():
@@ -41,7 +42,7 @@ class RN_SeedXPro_Translator():
         pass
 
     def _load_llm_config(self):
-        cfg_path = os.path.join(os.path.dirname(__file__), "config", "comfyui_rn_translator-config.json")
+        cfg_path = os.path.join(os.path.dirname(__file__), "config", "comfyui_rn_seedxpro-config.json")
         if not os.path.exists(cfg_path):
             return {}
         try:
@@ -103,12 +104,11 @@ class RN_SeedXPro_Translator():
         return final
 
     def _translate_chunk(self, chunk, src, dst, temperature, apiBaseUrl, apiKey, model):
-        if apiBaseUrl == "default":
-            apiBaseUrl = ""
-        if apiKey == "default":
-            apiKey = ""
-        if model == "default":
-            model = ""
+        # 处理输入回退逻辑：只有当输入不为空（且不全是空格）时才使用输入值
+        apiBaseUrl = apiBaseUrl if apiBaseUrl and apiBaseUrl.strip() and apiBaseUrl != "default" else None
+        apiKey = apiKey if apiKey and apiKey.strip() and apiKey != "default" else None
+        model = model if model and model.strip() and model != "default" else None
+
         env_api_baseurl = (
             os.environ.get("COMFYUI_RN_BASE_URL")
             or os.environ.get("COMFLY_BASE_URL")
@@ -185,8 +185,12 @@ class RN_SeedXPro_Translator():
             return f"翻译错误：{str(e)}"
 
     def translate(self, prompt, apiBaseUrl="default", apiKey="default", model="default", **kwargs):
+        request_id = generate_request_id("translate", "seedxpro")
+        log_prepare("SeedXPro 翻译", request_id, "RunNode/SeedXPro-", "SeedXPro")
+        rn_pbar = ProgressBar(request_id, "SeedXPro", streaming=True, task_type="文本翻译", source="RunNode/SeedXPro-")
         cleaned = re.sub(r'[\x00\x01-\x08\x0b\x0c\x0e-\x1f\x7f]', '', prompt or "")
         if not cleaned.strip():
+            rn_pbar.error("错误：请输入要翻译的文本")
             return ("错误：请输入要翻译的文本",)
         src = kwargs.get('from')
         dst = kwargs.get('to')
@@ -194,11 +198,20 @@ class RN_SeedXPro_Translator():
         chunks = self._split_text_into_chunks(cleaned, max_chunk_size=400)
         if len(chunks) == 1:
             res = self._translate_chunk(chunks[0], src, dst, None, apiBaseUrl, apiKey, model)
+            if isinstance(res, str) and (res.startswith("错误：") or res.startswith("翻译错误")):
+                rn_pbar.error(res)
+            else:
+                rn_pbar.done(char_count=len(res or ""))
             return (res,)
         translated = []
         for c in chunks:
             translated.append(self._translate_chunk(c, src, dst, None, apiBaseUrl, apiKey, model))
-        return (' '.join(translated),)
+        joined = ' '.join(translated)
+        if joined.startswith("错误：") or joined.startswith("翻译错误"):
+            rn_pbar.error(joined)
+        else:
+            rn_pbar.done(char_count=len(joined))
+        return (joined,)
 
     @classmethod
     def IS_CHANGED(cls, **kwargs):

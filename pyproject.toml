@@ -1,0 +1,9 @@
+[project]
+name = "comfyui-rn-seedxpro"
+description = "RunNode SeedXPro nodes for ComfyUI"
+version = "1.0"
+
+[tool.comfy]
+PublisherId = "SF-Runnode"
+DisplayName = "RunNode SeedXPro"
+Icon = ""
